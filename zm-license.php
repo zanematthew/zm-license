@@ -331,50 +331,66 @@ Class ZM_License {
         if ( $license_action && $license_action == 'license_activate' ){
 
             $license_obj = $this->activate_license( $license );
-            switch( $license_obj->license ){
-                case 'invalid' :
-                case 'invalid_item_id' :
-                case 'item_name_mismatch' :
-                case 'expired' :
-                case 'inactive' :
-                case 'disabled' :
-                case 'site_inactive' :
-                    $desc = sprintf( '%s: %s',
-                        __( 'Unable to activate your license', 'zane' ),
-                        $license_obj->license
+
+            // Not valid
+            if ( isset( $license_obj->error ) ){
+
+                switch( $license_obj->error ){
+                    case 'missing' :
+                    case 'revoked' :
+                    case 'no_activations_left' :
+                    case 'key_mismatch' :
+                    case 'invalid_item_id' :
+                    case 'item_name_mismatch' :
+                        $desc = sprintf( '%s: %s',
+                            __( 'Unable to activate your license: ', 'zane' ),
+                            $license_obj->error
                         );
-                    $type = 'error';
-                    break;
+                        $type = 'error';
+                        break;
 
-                case 'valid' :
+                    case 'expired' :
+                        $desc = sprintf( '%s <br />%s: %s',
+                            __( 'Your license has expired. Please contact us to renew your license.', $this->namespace ),
+                            __( 'Expired on', $this->namespace ),
+                            date( 'D M j H:i', strtotime( $license_obj->expires ) )
+                        );
+                        $type = 'error';
+                        break;
+                    default :
+                        $desc = __( 'An unexpected error occurred ', $this->namespace );
+                        $desc .= $license_obj->error;
+                        $type = 'updated';
+                        break;
+                }
+            }
 
-                    $desc = sprintf( "%s: %s<br />\n\n %s: %s<br /> %s: %s<br /> %s: %s<br /> %s: %s<br /> %s: %s",
+            // Valid
+            elseif ( isset( $license_obj->license ) && $license_obj->license = 'valid' ){
+                $desc = sprintf( "%s: %s<br />\n\n %s: %s<br /> %s: %s<br /> %s: %s<br /> %s: %s<br /> %s: %s",
 
-                        __( 'Your license is', $this->namespace ),
-                        $license_obj->license,
+                    __( 'Your license is', $this->namespace ),
+                    $license_obj->license,
 
-                        __( 'Expires', $this->namespace ),
-                        date( 'D M j H:i', strtotime( $license_obj->expires ) ),
+                    __( 'Expires', $this->namespace ),
+                    date( 'D M j H:i', strtotime( $license_obj->expires ) ),
 
-                        __( 'Registered To', $this->namespace ),
-                        $license_obj->customer_name,
+                    __( 'Registered To', $this->namespace ),
+                    $license_obj->customer_name,
 
-                        __( 'License Limit', $this->namespace ),
-                        $license_obj->license_limit,
+                    __( 'License Limit', $this->namespace ),
+                    $license_obj->license_limit,
 
-                        __( 'Site Count', $this->namespace ),
-                        $license_obj->site_count,
+                    __( 'Site Count', $this->namespace ),
+                    $license_obj->site_count,
 
-                        __( 'Activations left', $this->namespace ),
-                        $license_obj->activations_left
-                    );
-
+                    __( 'Activations left', $this->namespace ),
+                    $license_obj->activations_left
+                );
                     $type = 'updated';
-                    break;
-                default :
-                    $desc = __( 'An unexpected error occurred.', $this->namespace );
-                    $type = 'error';
-                    break;
+            } else {
+                $desc = __( 'An unexpected error occurred.', $this->namespace );
+                $type = 'error';
             }
 
         } elseif ( $license_action && $license_action == 'license_deactivate' ){
@@ -397,7 +413,7 @@ Class ZM_License {
         }
 
         if ( $desc )
-            add_settings_error( $this->namespace, 'cc_enabled', $desc, $type );
+            add_settings_error( $this->namespace, 'zm_validate_license_error', $desc, $type );
 
         return $input;
     }
