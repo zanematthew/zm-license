@@ -12,7 +12,7 @@ Snippet:
 // include the license class
 // include the settings class
 
-function carrier_constant_setup(){
+function carrier_cc_setup(){
 
     // load settings
     // At least one setting should be:
@@ -32,5 +32,5 @@ function carrier_constant_setup(){
         'author' => 'Zane Matthew, Inc.',
         'license' =>  empty( $carrier_settings['license_key'] ) ? null : $carrier_settings['license_key'] ) );
 }
-add_action( 'plugins_loaded', 'carrier_constant_setup' );
+add_action( 'plugins_loaded', 'carrier_cc_setup' );
 ```

@@ -38,7 +38,7 @@ Class ZM_License {
 
         add_action( 'zm_settings_below_license', array( &$this, 'below_license_setting' ) );
 
-        add_filter( $this->namespace . '_sanitize_license', array( &$this, 'validate_license_setting') );
+        add_filter( 'quilt_' . $this->namespace . '_sanitize_license', array( &$this, 'validate_license_setting') );
         add_filter( 'zm_settings_license_args', array( &$this, 'extra_license_args') );
     }
 
