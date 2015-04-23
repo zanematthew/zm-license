@@ -8,6 +8,7 @@ if ( ! class_exists( 'EDD_SL_Plugin_Updater' ) ) {
 }
 
 
+if ( ! class_exists( 'ZM_License' ) ) :
 Class ZM_License {
 
     /**
@@ -456,3 +457,4 @@ Class ZM_License {
 
     }
 }
+endif;
