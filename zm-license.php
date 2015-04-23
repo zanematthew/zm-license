@@ -29,18 +29,18 @@ Class ZM_License {
         $this->author = $params['author'];
         $this->license_option = $this->namespace . '_license_data';
 
-        add_action( 'admin_enqueue_scripts', array( &$this, 'admin_scripts' ) );
-        add_action( 'admin_init', array( &$this, 'zm_sl_plugin_updater'), 0 );
+        add_action( 'admin_enqueue_scripts', array( &$this, 'adminScripts' ) );
+        add_action( 'admin_init', array( &$this, 'zmSlPluginUpdater'), 0 );
 
-        add_action( 'zm_license_deactivate_license', array( &$this, 'deactivate_license' ) );
-        add_action( 'zm_license_activate_license', array( &$this, 'activate_license' ) );
-        add_action( 'zm_license_is_active', array( &$this, 'is_license_active' ) );
+        add_action( 'zm_license_deactivate_license', array( &$this, 'deactivateLicense' ) );
+        add_action( 'zm_license_activate_license', array( &$this, 'activateLicense' ) );
+        add_action( 'zm_license_is_active', array( &$this, 'isLicenseActive' ) );
 
         add_action( 'quilt_' . $this->namespace . '_below_license', array( &$this, 'below_license_setting' ) );
 
         // This is ran to check our license
         add_filter( 'quilt_' . $this->namespace . '_sanitize_license', array( &$this, 'validate_license_setting') );
-        add_filter( 'quilt_' . $this->namespace . '_license_args', array( &$this, 'extra_license_args') );
+        add_filter( 'quilt_' . $this->namespace . '_license_args', array( &$this, 'extraLicenseArgs') );
     }
 
 
@@ -51,7 +51,7 @@ Class ZM_License {
      * @todo This should be a dependency injection?
      * @return
      */
-    public function zm_sl_plugin_updater() {
+    public function zmSlPluginUpdater() {
         // setup the updater
         $edd_updater = new EDD_SL_Plugin_Updater( $this->store_url, $this->plugin_file, array(
                 'version'   => $this->version,
@@ -70,7 +70,7 @@ Class ZM_License {
      *
      * @return
      */
-    public function admin_scripts(){
+    public function adminScripts(){
 
         $screen = get_current_screen();
 
@@ -131,10 +131,10 @@ Class ZM_License {
      *
      * @return Full license data returned from remote
      */
-    public function deactivate_license( $license=null ){
+    public function deactivateLicense( $license=null ){
 
-        $data = $this->get_license_remote_data( 'deactivate_license', $license );
-        $removed = $this->remove_license_data();
+        $data = $this->getLicenseRemoteData( 'deactivate_license', $license );
+        $removed = $this->removeLicenseData();
 
         return $data;
     }
@@ -148,10 +148,10 @@ Class ZM_License {
      *
      * @return Full license data returned from remote
      */
-    public function activate_license( $license=null ){
+    public function activateLicense( $license=null ){
 
-        $license_remote_data = $this->get_license_remote_data( 'activate_license', $license );
-        $this->update_license_data( $license_remote_data );
+        $license_remote_data = $this->getLicenseRemoteData( 'activate_license', $license );
+        $this->updateLicenseData( $license_remote_data );
 
         return $license_remote_data;
     }
@@ -165,7 +165,7 @@ Class ZM_License {
      *
      * @return Response(?) Of "stuff", zomg, yeah, f-ing stuff?
      */
-    public function get_license_remote_data( $action=null, $license=null ){
+    public function getLicenseRemoteData( $action=null, $license=null ){
 
         $api_params = array(
             'edd_action'=> $action,
@@ -192,7 +192,7 @@ Class ZM_License {
      *
      * @return (bool)
      */
-    public function update_license_data( $license_data=null ){
+    public function updateLicenseData( $license_data=null ){
 
         return update_option( $this->license_option, $license_data );
 
@@ -206,7 +206,7 @@ Class ZM_License {
      *
      * @return (bool)
      */
-    public function remove_license_data(){
+    public function removeLicenseData(){
 
         return delete_option( $this->license_option );
 
@@ -235,7 +235,7 @@ Class ZM_License {
      *
      * @return False or specific key
      */
-    public function get_license_data( $key=null ){
+    public function getLicenseData( $key=null ){
         $data = get_option( $this->license_option );
 
         if ( empty( $data ) )
@@ -258,7 +258,7 @@ Class ZM_License {
      * @return Prints HTML
      */
     public function below_license_setting(){
-        $data = $this->get_license_data();
+        $data = $this->getLicenseData();
 
         if ( $data ){
             $expires = date( 'D M j H:i', strtotime( $data['expires'] ) );
@@ -296,9 +296,9 @@ Class ZM_License {
      *
      * @return The full license object
      */
-    public function is_license_active( $license=null ){
+    public function isLicenseActive( $license=null ){
 
-        return $this->get_license_remote_data( 'check_license', $license );
+        return $this->getLicenseRemoteData( 'check_license', $license );
 
     }
 
@@ -338,7 +338,7 @@ Class ZM_License {
 
         if ( $license_action && $license_action == 'license_activate' ){
 
-            $license_obj = $this->activate_license( $license );
+            $license_obj = $this->activateLicense( $license );
 
             // Not valid
             if ( isset( $license_obj->error ) ){
@@ -403,7 +403,7 @@ Class ZM_License {
 
         } elseif ( $license_action && $license_action == 'license_deactivate' ){
 
-            $license_obj = $this->deactivate_license( $license );
+            $license_obj = $this->deactivateLicense( $license );
             if ( isset( $license_obj->license ) && $license_obj->license == 'deactivated' ){
                 $desc = __( 'Deactivated license', $this->namespace );
                 $type = 'updated';
@@ -412,7 +412,7 @@ Class ZM_License {
         }
 
         elseif ( $license != $previous_license ) {
-            $license_obj = $this->deactivate_license( $license );
+            $license_obj = $this->deactivateLicense( $license );
             $desc = __( 'You changed the license after you activated it. license is invalid and has been deactivated.', $this->namespace );
             $type = 'error';
         }
@@ -437,8 +437,8 @@ Class ZM_License {
      *
      * @return $args    (array) Array of arguments with the extra license data passed in.
      */
-    public function extra_license_args( $args ){
-        $args['extra']['license_data'] = $this->get_license_data();
+    public function extraLicenseArgs( $args ){
+        $args['extra']['license_data'] = $this->getLicenseData();
         return $args;
     }
 
