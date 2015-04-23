@@ -5,7 +5,7 @@ jQuery( document ).ready(function( $ ){
         $this = $(this);
         var action = $this.data('zm_license_action');
 
-        $('#zm_settings_license_action').val( action );
+        $('#zm_license_action').val( action );
         $this.parents('form').submit();
 
         return false;

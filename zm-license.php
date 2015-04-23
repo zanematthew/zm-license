@@ -20,7 +20,7 @@ Class ZM_License {
     public function __construct( $params=null ){
 
         // @todo __get, __set
-        $this->namespace = $params['namespace'];
+        $this->namespace = $this->sanitizeNamespace( $params['namespace'] );
         $this->version = $params['version'];
         $this->download_name = $params['download'];
         $this->store_url = $params['store'];
@@ -36,10 +36,11 @@ Class ZM_License {
         add_action( 'zm_license_activate_license', array( &$this, 'activate_license' ) );
         add_action( 'zm_license_is_active', array( &$this, 'is_license_active' ) );
 
-        add_action( 'zm_settings_below_license', array( &$this, 'below_license_setting' ) );
+        add_action( 'quilt_' . $this->namespace . '_below_license', array( &$this, 'below_license_setting' ) );
 
+        // This is ran to check our license
         add_filter( 'quilt_' . $this->namespace . '_sanitize_license', array( &$this, 'validate_license_setting') );
-        add_filter( 'zm_settings_license_args', array( &$this, 'extra_license_args') );
+        add_filter( 'quilt_' . $this->namespace . '_license_args', array( &$this, 'extra_license_args') );
     }
 
 
@@ -70,8 +71,10 @@ Class ZM_License {
      * @return
      */
     public function admin_scripts(){
+
         $screen = get_current_screen();
-        if ( $screen->id == 'settings_page_' . $this->namespace ){
+
+        if ( $screen->id == 'settings_page_' . $this->namespace . '_settings' ){
             wp_enqueue_script( 'zm-license-verify', plugin_dir_url( __FILE__ ) .'assets/javascripts/admin-verify.js', array('jquery'), $this->version );
         }
     }
@@ -314,6 +317,10 @@ Class ZM_License {
 
 
     /**
+     * This is where we intercept our form submission, and handle checking if the license
+     * is active, inactive, etc. and we return the status and description ready to be displayed
+     * in the WordPress admin.
+     *
      * Ensure that the license is active if the user has already activated a license.
      *
      * @param $input The license being passed in via the filter, default is from $_POST
@@ -327,6 +334,7 @@ Class ZM_License {
         $previous_license = empty( $_POST[ $this->namespace ]['previous_license'] ) ? $input : $_POST[ $this->namespace ]['previous_license'];
         $desc = false;
         $type = false;
+
 
         if ( $license_action && $license_action == 'license_activate' ){
 
@@ -343,7 +351,7 @@ Class ZM_License {
                     case 'invalid_item_id' :
                     case 'item_name_mismatch' :
                         $desc = sprintf( '%s: %s',
-                            __( 'Unable to activate your license: ', 'zane' ),
+                            __( 'Unable to activate your license: ', $this->namespace ),
                             $license_obj->error
                         );
                         $type = 'error';
@@ -402,11 +410,13 @@ Class ZM_License {
             }
 
         }
+
         elseif ( $license != $previous_license ) {
             $license_obj = $this->deactivate_license( $license );
             $desc = __( 'You changed the license after you activated it. license is invalid and has been deactivated.', $this->namespace );
             $type = 'error';
         }
+
         else {
             $desc = false;
             $type = false;
@@ -430,5 +440,19 @@ Class ZM_License {
     public function extra_license_args( $args ){
         $args['extra']['license_data'] = $this->get_license_data();
         return $args;
+    }
+
+
+    /**
+     * Should return a string that is safe to be used in function names, as a variable, etc.
+     * free of illegal characters.
+     *
+     * @param $namespace (string)   The namespace to sanitize
+     * @return $namespace (string)  The namespace free of illegal characters.
+     */
+    public function sanitizeNamespace( $namespace=null ){
+
+        return str_replace( array('-', ' ' ), '_', $namespace );
+
     }
 }
