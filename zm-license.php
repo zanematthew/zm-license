@@ -336,7 +336,6 @@ Class ZMLicense {
         $desc = false;
         $type = false;
 
-
         if ( $license_action && $license_action == 'license_activate' ){
 
             $license_obj = $this->activateLicense( $license );
@@ -352,7 +351,7 @@ Class ZMLicense {
                     case 'invalid_item_id' :
                     case 'item_name_mismatch' :
                         $desc = sprintf( '%s: %s',
-                            __( 'Unable to activate your license: ', $this->namespace ),
+                            __( 'Unable to activate your license', $this->namespace ),
                             $license_obj->error
                         );
                         $type = 'error';
