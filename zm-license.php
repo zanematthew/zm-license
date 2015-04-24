@@ -8,8 +8,8 @@ if ( ! class_exists( 'EDD_SL_Plugin_Updater' ) ) {
 }
 
 
-if ( ! class_exists( 'ZM_License' ) ) :
-Class ZM_License {
+if ( ! class_exists( 'ZMLicense' ) ) :
+Class ZMLicense {
 
     /**
      * Various actions and filters to be ran during init.
@@ -37,10 +37,10 @@ Class ZM_License {
         add_action( 'zm_license_activate_license', array( &$this, 'activateLicense' ) );
         add_action( 'zm_license_is_active', array( &$this, 'isLicenseActive' ) );
 
-        add_action( 'quilt_' . $this->namespace . '_below_license', array( &$this, 'below_license_setting' ) );
+        add_action( 'quilt_' . $this->namespace . '_below_license', array( &$this, 'belowLicenseSetting' ) );
 
         // This is ran to check our license
-        add_filter( 'quilt_' . $this->namespace . '_sanitize_license', array( &$this, 'validate_license_setting') );
+        add_filter( 'quilt_' . $this->namespace . '_sanitize_license', array( &$this, 'validateLicenseSetting') );
         add_filter( 'quilt_' . $this->namespace . '_license_args', array( &$this, 'extraLicenseArgs') );
     }
 
@@ -258,7 +258,7 @@ Class ZM_License {
      *
      * @return Prints HTML
      */
-    public function below_license_setting(){
+    public function belowLicenseSetting(){
         $data = $this->getLicenseData();
 
         if ( $data ){
@@ -328,7 +328,7 @@ Class ZM_License {
      *
      * @return On error adds settings error, $input
      */
-    public function validate_license_setting( $input ){
+    public function validateLicenseSetting( $input ){
 
         $license_action = isset( $_POST[ $this->namespace ]['license_action'] ) ? $_POST[ $this->namespace ]['license_action'] : false;
         $license = empty( $_POST[ $this->namespace ]['license_key'] ) ? $this->sanitize_license( $input ) : $this->sanitize_license( $_POST[ $this->namespace ]['license_key'] );
