@@ -75,7 +75,7 @@ Class ZMLicense {
 
         $screen = get_current_screen();
 
-        if ( $screen->id == 'settings_page_' . $this->namespace . '_settings' ){
+        if ( $screen->id == 'settings_page_' . $this->namespace ){
             wp_enqueue_script( 'zm-license-verify', plugin_dir_url( __FILE__ ) .'assets/javascripts/admin-verify.js', array('jquery'), $this->version );
         }
     }
