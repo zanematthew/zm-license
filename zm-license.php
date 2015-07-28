@@ -22,16 +22,18 @@ Class ZMLicense {
 
         // @todo __get, __set
         $this->namespace = $this->sanitizeNamespace( $params['namespace'] );
+        $this->license_option = $this->namespace . '_license_data';
+
         $this->version = $params['version'];
         $this->download_name = $params['download'];
         $this->store_url = $params['store'];
         $this->plugin_file = $params['plugin_file'];
         $this->license = $params['license'];
         $this->author = $params['author'];
-        $this->license_option = $this->namespace . '_license_data';
 
         add_action( 'admin_enqueue_scripts', array( &$this, 'adminScripts' ) );
         add_action( 'admin_init', array( &$this, 'zmSlPluginUpdater'), 0 );
+        add_action( 'wp_ajax_zmLicenseAjaxValidate', array( &$this, 'zmLicenseAjaxValidate' ) );
 
         add_action( 'zm_license_deactivate_license', array( &$this, 'deactivateLicense' ) );
         add_action( 'zm_license_activate_license', array( &$this, 'activateLicense' ) );
@@ -40,7 +42,7 @@ Class ZMLicense {
         add_action( 'quilt_' . $this->namespace . '_below_license', array( &$this, 'belowLicenseSetting' ) );
 
         // This is ran to check our license
-        add_filter( 'quilt_' . $this->namespace . '_sanitize_license', array( &$this, 'validateLicenseSetting') );
+        add_filter( 'quilt_' . $this->namespace . '_sanitize_license', array( &$this, 'sanitizeLicenseSetting') );
         add_filter( 'quilt_' . $this->namespace . '_license_args', array( &$this, 'extraLicenseArgs') );
     }
 
@@ -53,6 +55,7 @@ Class ZMLicense {
      * @return
      */
     public function zmSlPluginUpdater() {
+
         // setup the updater
         $edd_updater = new EDD_SL_Plugin_Updater( $this->store_url, $this->plugin_file, array(
                 'version'   => $this->version,
@@ -78,49 +81,6 @@ Class ZMLicense {
         if ( $screen->id == 'settings_page_' . $this->namespace ){
             wp_enqueue_script( 'zm-license-verify', plugin_dir_url( __FILE__ ) .'assets/javascripts/admin-verify.js', array('jquery'), $this->version );
         }
-    }
-
-
-    /**
-     * The allowed license errors
-     *
-     * @param
-     *
-     * @return An array of erros
-     */
-    public function license_errors(){
-        $errors = array(
-            'missing',
-            'revoked',
-            'no_activations_left',
-            'expired',
-            'key_mismatch',
-            'invalid_item_id',
-            'item_name_mismatch'
-        );
-        return $errors;
-    }
-
-
-    /**
-     * The allowed license status
-     *
-     * @param
-     *
-     * @return An array of status
-     */
-    public function license_status(){
-        $license_status = array(
-            'invalid', // keys don't match
-            'invalid_item_id',
-            'item_name_mismatch', // Item names don't match
-            'expired', // this license has expired
-            'inactive', // this license is not active.
-            'disabled', // License key disabled
-            'site_inactive',
-            'valid' // license still active
-        );
-        return $license_status;
     }
 
 
@@ -313,7 +273,159 @@ Class ZMLicense {
      * @return Sanitized license via 'sanitize_key'
      */
     public function sanitize_license( $license=null ){
+
         return sanitize_key( $license );
+
+    }
+
+
+    /**
+     *
+     * @param   $license_action=null,
+     * @param   $license_key=null,
+     * @param   $previous_license=null
+     */
+    public function validateLicense( $args=null ){
+
+
+        $params = wp_parse_args( $args, array(
+            'license_action'   => $_POST['license_action'],
+            'license_key'      => $this->sanitize_license( $_POST['license_key'] ),
+            'previous_license' => $this->sanitize_license( $_POST['previous_license'] ),
+            'namespace'        => $this->namespace
+        ) );
+
+        print_r( $params );
+        die();
+
+        // Activated
+        if ( $params['license_action'] && $params['license_action'] == 'license_activate' ){
+
+            $license_obj = $this->activateLicense( $params['license_key'] );
+
+            // Not valid
+            if ( isset( $license_obj->error ) ){
+
+                switch( $license_obj->error ){
+                    case 'missing' :
+                    case 'revoked' :
+                    case 'no_activations_left' :
+                    case 'key_mismatch' :
+                    case 'invalid_item_id' :
+                    case 'item_name_mismatch' :
+
+                        $message = array(
+                            'desc' => sprintf( '%s: %s',
+                                __( 'Unable to activate your license', $params['namespace'] ),
+                                $license_obj->error
+                            ),
+                            'type' => 'error'
+                        );
+
+                        break;
+
+                    case 'expired' :
+
+                        $message = array(
+                            'desc' => sprintf( '%s <br />%s: %s',
+                                __( 'Your license has expired. Please contact us to renew your license.', $params['namespace'] ),
+                                __( 'Expired on', $params['namespace'] ),
+                                date( 'D M j H:i', strtotime( $license_obj->expires ) )
+                                ),
+                            'type' => 'error'
+                        );
+
+                        break;
+
+                    default :
+
+                        $message = array(
+                            'desc' => sprintf( '%s: %s',
+                                __( 'An unexpected error occurred ', $params['namespace'] ),
+                                $license_obj->error
+                                ),
+                            'type' => 'updated'
+                        );
+
+                        break;
+
+                }
+            }
+
+            // Valid
+            elseif ( isset( $license_obj->license ) && $license_obj->license = 'valid' ){
+
+                $message = array(
+                    'desc' => sprintf( "%s: %s<br />\n\n %s: %s<br /> %s: %s<br /> %s: %s<br /> %s: %s<br /> %s: %s",
+
+                        __( 'Your license is', $params['namespace'] ),
+                        $license_obj->license,
+
+                        __( 'Expires', $params['namespace'] ),
+                        date( 'D M j H:i', strtotime( $license_obj->expires ) ),
+
+                        __( 'Registered To', $params['namespace'] ),
+                        $license_obj->customer_name,
+
+                        __( 'License Limit', $params['namespace'] ),
+                        $license_obj->license_limit,
+
+                        __( 'Site Count', $params['namespace'] ),
+                        $license_obj->site_count,
+
+                        __( 'Activations left', $params['namespace'] ),
+                        $license_obj->activations_left
+                        ),
+                    'type' => 'updated'
+                );
+
+            } else {
+
+                $message = array(
+                    'desc' => __( 'An unexpected error occurred.', $params['namespace'] ),
+                    'type' => 'error'
+                    );
+
+            }
+
+        // Deactivate
+        } elseif ( $params['license_action'] && $params['license_action'] == 'license_deactivate' ){
+
+            $license_obj = $this->deactivateLicense( $params['license_key'] );
+            if ( isset( $license_obj->license ) && $license_obj->license == 'deactivated' ){
+
+                $message = array(
+                    'desc' => __( 'Deactivated license', $params['namespace'] ),
+                    'type' => 'updated'
+                );
+
+            }
+
+        }
+
+        // License key has since changed
+        elseif ( $params['license_key'] != $params['previous_license'] ) {
+
+            $license_obj = $this->deactivateLicense( $params['license_key'] );
+            $message = array(
+                'desc' => __( 'You changed the license after you activated it. license is invalid and has been deactivated.', $params['namespace'] ),
+                'type' => 'error'
+            );
+
+        }
+
+        // Default
+        else {
+
+            $message = array(
+                'desc' => false,
+                'type' => false
+            );
+
+        }
+
+        return $message;
+
     }
 
 
@@ -328,104 +440,21 @@ Class ZMLicense {
      *
      * @return On error adds settings error, $input
      */
-    public function validateLicenseSetting( $input ){
+    public function sanitizeLicenseSetting( $input ){
 
-        $license_action = isset( $_POST[ $this->namespace ]['license_action'] ) ? $_POST[ $this->namespace ]['license_action'] : false;
-        $license = empty( $_POST[ $this->namespace ]['license_key'] ) ? $this->sanitize_license( $input ) : $this->sanitize_license( $_POST[ $this->namespace ]['license_key'] );
-        $previous_license = empty( $_POST[ $this->namespace ]['previous_license'] ) ? $input : $_POST[ $this->namespace ]['previous_license'];
-        $desc = false;
-        $type = false;
+        $message = $this->validateLicense();
 
-        if ( $license_action && $license_action == 'license_activate' ){
-
-            $license_obj = $this->activateLicense( $license );
-
-            // Not valid
-            if ( isset( $license_obj->error ) ){
-
-                switch( $license_obj->error ){
-                    case 'missing' :
-                    case 'revoked' :
-                    case 'no_activations_left' :
-                    case 'key_mismatch' :
-                    case 'invalid_item_id' :
-                    case 'item_name_mismatch' :
-                        $desc = sprintf( '%s: %s',
-                            __( 'Unable to activate your license', $this->namespace ),
-                            $license_obj->error
-                        );
-                        $type = 'error';
-                        break;
-
-                    case 'expired' :
-                        $desc = sprintf( '%s <br />%s: %s',
-                            __( 'Your license has expired. Please contact us to renew your license.', $this->namespace ),
-                            __( 'Expired on', $this->namespace ),
-                            date( 'D M j H:i', strtotime( $license_obj->expires ) )
-                        );
-                        $type = 'error';
-                        break;
-                    default :
-                        $desc = __( 'An unexpected error occurred ', $this->namespace );
-                        $desc .= $license_obj->error;
-                        $type = 'updated';
-                        break;
-                }
-            }
-
-            // Valid
-            elseif ( isset( $license_obj->license ) && $license_obj->license = 'valid' ){
-                $desc = sprintf( "%s: %s<br />\n\n %s: %s<br /> %s: %s<br /> %s: %s<br /> %s: %s<br /> %s: %s",
-
-                    __( 'Your license is', $this->namespace ),
-                    $license_obj->license,
-
-                    __( 'Expires', $this->namespace ),
-                    date( 'D M j H:i', strtotime( $license_obj->expires ) ),
-
-                    __( 'Registered To', $this->namespace ),
-                    $license_obj->customer_name,
-
-                    __( 'License Limit', $this->namespace ),
-                    $license_obj->license_limit,
-
-                    __( 'Site Count', $this->namespace ),
-                    $license_obj->site_count,
-
-                    __( 'Activations left', $this->namespace ),
-                    $license_obj->activations_left
-                );
-                    $type = 'updated';
-            } else {
-                $desc = __( 'An unexpected error occurred.', $this->namespace );
-                $type = 'error';
-            }
-
-        } elseif ( $license_action && $license_action == 'license_deactivate' ){
-
-            $license_obj = $this->deactivateLicense( $license );
-            if ( isset( $license_obj->license ) && $license_obj->license == 'deactivated' ){
-                $desc = __( 'Deactivated license', $this->namespace );
-                $type = 'updated';
-            }
-
-        }
-
-        elseif ( $license != $previous_license ) {
-            $license_obj = $this->deactivateLicense( $license );
-            $desc = __( 'You changed the license after you activated it. license is invalid and has been deactivated.', $this->namespace );
-            $type = 'error';
-        }
-
-        else {
-            $desc = false;
-            $type = false;
-        }
-
-        if ( $desc )
-            add_settings_error( $this->namespace, 'zm_validate_license_error', $desc, $type );
+        if ( $message )
+            add_settings_error( $this->namespace, 'zm_validate_license_error', $message['desc'], $message['type'] );
 
         return $input;
+    }
+
+
+    public function zmLicenseAjaxValidate(){
+
+        $this->validateLicense();
+
     }
 
 
@@ -438,8 +467,10 @@ Class ZMLicense {
      * @return $args    (array) Array of arguments with the extra license data passed in.
      */
     public function extraLicenseArgs( $args ){
+
         $args['extra']['license_data'] = $this->getLicenseData();
         return $args;
+
     }
 
 
