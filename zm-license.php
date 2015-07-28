@@ -1,12 +1,6 @@
 <?php
 
-set_site_transient( 'update_plugins', null );
-
-if ( ! class_exists( 'EDD_SL_Plugin_Updater' ) ) {
-    // load our custom updater
-    include plugin_dir_path( __FILE__ ) . 'vendor/edd/EDD_SL_Plugin_Updater.php';
-}
-
+// Handles checking of a remote license
 
 if ( ! class_exists( 'ZMLicense' ) ) :
 Class ZMLicense {
@@ -20,50 +14,26 @@ Class ZMLicense {
      */
     public function __construct( $params=null ){
 
-        // @todo __get, __set
-        $this->namespace = $this->sanitizeNamespace( $params['namespace'] );
-        $this->license_option = $this->namespace . '_license_data';
 
-        $this->version = $params['version'];
-        $this->download_name = $params['download'];
-        $this->store_url = $params['store'];
-        $this->plugin_file = $params['plugin_file'];
-        $this->license = $params['license'];
-        $this->author = $params['author'];
+        $this->namespace = sanitize_key( $params['namespace'] );
+        $this->settings_id = $params['settings_id'];
+        $this->version = '1.0.0';
+
 
         add_action( 'admin_enqueue_scripts', array( &$this, 'adminScripts' ) );
-        add_action( 'admin_init', array( &$this, 'zmSlPluginUpdater'), 0 );
         add_action( 'wp_ajax_zmLicenseAjaxValidate', array( &$this, 'zmLicenseAjaxValidate' ) );
 
-        add_action( 'zm_license_deactivate_license', array( &$this, 'deactivateLicense' ) );
-        add_action( 'zm_license_activate_license', array( &$this, 'activateLicense' ) );
-        add_action( 'zm_license_is_active', array( &$this, 'isLicenseActive' ) );
 
-        add_action( 'quilt_' . $this->namespace . '_below_license', array( &$this, 'belowLicenseSetting' ) );
+        // Rather than filter the entire settings,
+        // lets just filter the single license field
+        add_action( 'quilt_' . $this->settings_id . '_below_license', array( &$this, 'belowLicenseSetting' ) );
 
         // This is ran to check our license
-        add_filter( 'quilt_' . $this->namespace . '_sanitize_license', array( &$this, 'sanitizeLicenseSetting') );
-        add_filter( 'quilt_' . $this->namespace . '_license_args', array( &$this, 'extraLicenseArgs') );
-    }
+        // This has that double admin notice bug, leaving commented out for now.
+        // add_filter( 'quilt_' . $this->namespace . '_sanitize_license', array( &$this, 'sanitizeLicenseSetting'), 10, 2 );
 
-
-    /**
-     * Instantiate the plugin updater
-     *
-     * @param
-     * @todo This should be a dependency injection?
-     * @return
-     */
-    public function zmSlPluginUpdater() {
-
-        // setup the updater
-        $edd_updater = new EDD_SL_Plugin_Updater( $this->store_url, $this->plugin_file, array(
-                'version'   => $this->version,
-                'license'   => $this->license,
-                'item_name' => $this->download_name,
-                'author'    => $this->author
-            )
-        );
+        // Change the button status
+        add_filter( 'quilt_' . $this->settings_id . '_license_args', array( &$this, 'extraLicenseArgs') );
     }
 
 
@@ -92,10 +62,10 @@ Class ZMLicense {
      *
      * @return Full license data returned from remote
      */
-    public function deactivateLicense( $license=null ){
+    public function deactivateLicense( $license_info=null ){
 
-        $data = $this->getLicenseRemoteData( 'deactivate_license', $license );
-        $removed = $this->removeLicenseData();
+        $data = $this->getLicenseRemoteData( 'deactivate_license', $license_info );
+        delete_option( $license_info['settings_id'] . '_data' );
 
         return $data;
     }
@@ -109,12 +79,13 @@ Class ZMLicense {
      *
      * @return Full license data returned from remote
      */
-    public function activateLicense( $license=null ){
+    public function activateLicense( $license_info=null ){
 
-        $license_remote_data = $this->getLicenseRemoteData( 'activate_license', $license );
-        $this->updateLicenseData( $license_remote_data );
+        $license_remote_data = $this->getLicenseRemoteData( 'activate_license', $license_info );
+        update_option( $license_info['settings_id'] . '_data', $license_remote_data );
 
         return $license_remote_data;
+
     }
 
 
@@ -126,51 +97,25 @@ Class ZMLicense {
      *
      * @return Response(?) Of "stuff", zomg, yeah, f-ing stuff?
      */
-    public function getLicenseRemoteData( $action=null, $license=null ){
+    public function getLicenseRemoteData( $action=null, $license_info=null ){
 
         $api_params = array(
             'edd_action'=> $action,
-            'license'   => $license,
-            'item_name' => urlencode( $this->download_name ), // the name of our product in EDD
+            'license'   => $license_info['license_key'],
+            'item_name' => urlencode( $license_info['download_name'] ), // the name of our product in EDD
             'url'       => home_url()
         );
 
-        $response = wp_remote_get( add_query_arg( $api_params, $this->store_url ), array( 'timeout' => 15, 'sslverify' => false ) );
+        $response = wp_remote_get( add_query_arg( $api_params, $license_info['store'] ), array( 'timeout' => 15, 'sslverify' => false ) );
 
         // make sure the response came back okay
         if ( is_wp_error( $response ) )
             return false;
 
         // decode the license data
-        return json_decode( wp_remote_retrieve_body( $response ) );
-    }
+        $json = json_decode( wp_remote_retrieve_body( $response ) );
 
-
-    /**
-     * Updates the entry in the *_options table with the new license data
-     *
-     * @param $license_data (array) The license data to save in the *_options table
-     *
-     * @return (bool)
-     */
-    public function updateLicenseData( $license_data=null ){
-
-        return update_option( $this->license_option, $license_data );
-
-    }
-
-
-    /**
-     * Deletes the entry from the *_options table where the license data is stored
-     *
-     * @param
-     *
-     * @return (bool)
-     */
-    public function removeLicenseData(){
-
-        return delete_option( $this->license_option );
-
+        return $json;
     }
 
 
@@ -196,16 +141,14 @@ Class ZMLicense {
      *
      * @return False or specific key
      */
-    public function getLicenseData( $key=null ){
-        $data = get_option( $this->license_option );
+    public function getLicenseData( $settings_id=null ){
+
+        $data = get_option( $settings_id . '_data' );
 
         if ( empty( $data ) )
             return false;
 
         $data = get_object_vars( $data );
-        if ( ! empty( $key ) ){
-            $data = $data[ $key ];
-        }
 
         return $data;
     }
@@ -218,13 +161,14 @@ Class ZMLicense {
      *
      * @return Prints HTML
      */
-    public function belowLicenseSetting(){
-        $data = $this->getLicenseData();
+    public function belowLicenseSetting( $settings_id ){
+
+        $data = $this->getLicenseData( $settings_id );
 
         if ( $data ){
             $expires = date( 'D M j H:i', strtotime( $data['expires'] ) );
 
-            $html = sprintf( '%s %s, %s %s, %s %s, %s %s',
+            $html = sprintf( '%s %s, %s %s, %s %s, %s %s, %s %s',
                 __( 'Registered to', $this->namespace ),
                 $data['customer_name'],
 
@@ -235,7 +179,10 @@ Class ZMLicense {
                 $data['site_count'],
 
                 __( 'Activations left', $this->namespace ),
-                $data['activations_left']
+                $data['activations_left'],
+
+                __( 'For', $this->namespace ),
+                $data['item_name']
             );
 
             // $data['license_limit']
@@ -257,24 +204,9 @@ Class ZMLicense {
      *
      * @return The full license object
      */
-    public function isLicenseActive( $license=null ){
+    public function isLicenseActive( $license_info=null ){
 
-        return $this->getLicenseRemoteData( 'check_license', $license );
-
-    }
-
-
-    /**
-     * Strips lowercase alphanumeric characters, dashes and
-     * underscores are allowed. Uppercase characters will be
-     * converted to lowercase.
-     *
-     * @param $license The license to sanitize
-     * @return Sanitized license via 'sanitize_key'
-     */
-    public function sanitize_license( $license=null ){
-
-        return sanitize_key( $license );
+        return $this->getLicenseRemoteData( 'check_license', $license_info );
 
     }
 
@@ -287,144 +219,43 @@ Class ZMLicense {
      */
     public function validateLicense( $args=null ){
 
-
         $params = wp_parse_args( $args, array(
             'license_action'   => $_POST['license_action'],
-            'license_key'      => $this->sanitize_license( $_POST['license_key'] ),
-            'previous_license' => $this->sanitize_license( $_POST['previous_license'] ),
-            'namespace'        => $this->namespace
+            'license_key'      => sanitize_key( $_POST['license_key'] ),
+            'previous_license' => sanitize_key( $_POST['previous_license'] ),
+            'namespace'        => $this->namespace,
+            'download_name'    => $_POST['download_name'],
+            'settings_id'      => $_POST['settings_id'],
+            'store'            => $_POST['store']
         ) );
-
-        print_r( $params );
-        die();
 
         // Activated
         if ( $params['license_action'] && $params['license_action'] == 'license_activate' ){
 
-            $license_obj = $this->activateLicense( $params['license_key'] );
-
-            // Not valid
-            if ( isset( $license_obj->error ) ){
-
-                switch( $license_obj->error ){
-                    case 'missing' :
-                    case 'revoked' :
-                    case 'no_activations_left' :
-                    case 'key_mismatch' :
-                    case 'invalid_item_id' :
-                    case 'item_name_mismatch' :
-
-                        $message = array(
-                            'desc' => sprintf( '%s: %s',
-                                __( 'Unable to activate your license', $params['namespace'] ),
-                                $license_obj->error
-                            ),
-                            'type' => 'error'
-                        );
-
-                        break;
-
-                    case 'expired' :
-
-                        $message = array(
-                            'desc' => sprintf( '%s <br />%s: %s',
-                                __( 'Your license has expired. Please contact us to renew your license.', $params['namespace'] ),
-                                __( 'Expired on', $params['namespace'] ),
-                                date( 'D M j H:i', strtotime( $license_obj->expires ) )
-                                ),
-                            'type' => 'error'
-                        );
-
-                        break;
-
-                    default :
-
-                        $message = array(
-                            'desc' => sprintf( '%s: %s',
-                                __( 'An unexpected error occurred ', $params['namespace'] ),
-                                $license_obj->error
-                                ),
-                            'type' => 'updated'
-                        );
-
-                        break;
-
-                }
-            }
-
-            // Valid
-            elseif ( isset( $license_obj->license ) && $license_obj->license = 'valid' ){
-
-                $message = array(
-                    'desc' => sprintf( "%s: %s<br />\n\n %s: %s<br /> %s: %s<br /> %s: %s<br /> %s: %s<br /> %s: %s",
-
-                        __( 'Your license is', $params['namespace'] ),
-                        $license_obj->license,
-
-                        __( 'Expires', $params['namespace'] ),
-                        date( 'D M j H:i', strtotime( $license_obj->expires ) ),
-
-                        __( 'Registered To', $params['namespace'] ),
-                        $license_obj->customer_name,
-
-                        __( 'License Limit', $params['namespace'] ),
-                        $license_obj->license_limit,
-
-                        __( 'Site Count', $params['namespace'] ),
-                        $license_obj->site_count,
-
-                        __( 'Activations left', $params['namespace'] ),
-                        $license_obj->activations_left
-                        ),
-                    'type' => 'updated'
-                );
-
-            } else {
-
-                $message = array(
-                    'desc' => __( 'An unexpected error occurred.', $params['namespace'] ),
-                    'type' => 'error'
-                    );
-
-            }
+            $license_obj = $this->activateLicense( $params );
 
         // Deactivate
         } elseif ( $params['license_action'] && $params['license_action'] == 'license_deactivate' ){
 
-            $license_obj = $this->deactivateLicense( $params['license_key'] );
-            if ( isset( $license_obj->license ) && $license_obj->license == 'deactivated' ){
-
-                $message = array(
-                    'desc' => __( 'Deactivated license', $params['namespace'] ),
-                    'type' => 'updated'
-                );
-
-            }
+            $license_obj = $this->deactivateLicense( $params );
 
         }
 
         // License key has since changed
         elseif ( $params['license_key'] != $params['previous_license'] ) {
 
-            $license_obj = $this->deactivateLicense( $params['license_key'] );
-            $message = array(
-                'desc' => __( 'You changed the license after you activated it. license is invalid and has been deactivated.', $params['namespace'] ),
-                'type' => 'error'
-            );
+            $license_obj = $this->deactivateLicense( $params );
 
         }
 
         // Default
         else {
 
-            $message = array(
-                'desc' => false,
-                'type' => false
-            );
+            $license_obj = false;
 
         }
 
-        return $message;
+        return $license_obj;
 
     }
 
@@ -440,9 +271,23 @@ Class ZMLicense {
      *
      * @return On error adds settings error, $input
      */
-    public function sanitizeLicenseSetting( $input ){
+    public function sanitizeLicenseSetting( $input, $field_id ){
 
-        $message = $this->validateLicense();
+        $data = $this->getLicenseData( $field_id );
+
+        if ( empty( $data ) ){
+
+            $message = array(
+                'desc' => "Please activate: {$field_id}\n",
+                'type' => 'error'
+                );
+
+        } else {
+            $message = array(
+                'desc' => "{$field_id} is active.",
+                'type' => 'updated'
+                );
+        }
 
         if ( $message )
             add_settings_error( $this->namespace, 'zm_validate_license_error', $message['desc'], $message['type'] );
@@ -453,7 +298,51 @@ Class ZMLicense {
 
     public function zmLicenseAjaxValidate(){
 
-        $this->validateLicense();
+        // check ajax refer
+
+        $validated = $this->validateLicense();
+
+        if ( ! $validated ){
+
+            $message = array(
+                'type' => 'invalid',
+                'button_text' => __( 'Invalid', $this->namespace ),
+                'description' => __( '', $this->namespace )
+                );
+
+        }
+
+        // deactivated
+        elseif ( $validated->license == 'deactivated' ) {
+
+            $message = array(
+                'type' => 'deactivated',
+                'button_text' => __( 'Successfully Deactivated!', $this->namespace ),
+                'description' => __( '', $this->namespace )
+                );
+
+        }
+
+        // Valid and activated
+        elseif ( $validated->license == 'valid' ) {
+
+            $message = array(
+                'type' => 'valid',
+                'button_text' => __( 'Successfully Activated!', $this->namespace ),
+                'description' => __( '', $this->namespace )
+                );
+
+        } else {
+
+            $message = array(
+                'type' => 'failure',
+                'button_text' => __( 'Failure!', $this->namespace ),
+                'description' => __( 'An unexpected error occurred.', $this->namespace )
+                );
+
+        }
+
+        wp_send_json( $message );
 
     }
 
@@ -468,23 +357,11 @@ Class ZMLicense {
      */
     public function extraLicenseArgs( $args ){
 
-        $args['extra']['license_data'] = $this->getLicenseData();
+        $args['extra']['license_data'] = $this->getLicenseData( $args['settings_id'] );
+
         return $args;
 
     }
 
-
-    /**
-     * Should return a string that is safe to be used in function names, as a variable, etc.
-     * free of illegal characters.
-     *
-     * @param $namespace (string)   The namespace to sanitize
-     * @return $namespace (string)  The namespace free of illegal characters.
-     */
-    public function sanitizeNamespace( $namespace=null ){
-
-        return str_replace( array('-', ' ' ), '_', $namespace );
-
-    }
 }
 endif;

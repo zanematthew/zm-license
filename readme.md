@@ -1,36 +1,42 @@
+Description
+==
+Handles the functionality for activating, and deactivating the license via AJAX.
+
 Usage
 ==
 
-1. Require/include the file: `require_once( dirname( __FILE__ ) . '/lib/zm-license/zm-license.php');
-1. Require/include the settings: `require_once( dirname( __FILE__ ) . '/lib/zm-settings/zm-settings.php');`
-`
-1. Add a setting type "license" to the settings: `'type' => 'license'`
-1. Instantiate the object at a good time, and pass in the needed params: `$_zm_license = new ZM_License( $params );`
-
-Snippet:
+1. Init the class
 ```
-// include the license class
-// include the settings class
+$a = new ZMLicense( array(
+    'namespace'   => CLIENT_ACCESS_NAMESPACE,
+    'settings_id' => 'client_access_license' // Where in the settings to get the license from?
+) );
+```
 
-function carrier_cc_setup(){
 
-    // load settings
-    // At least one setting should be:
-    $settings = array(
-        'id' => 'license_key',
-        'title' => __('License Key','zm_alr_pro'),
-        'type' => 'license'
-        );
+2. Filter the params for the button that activates/deactivates the license
 
-    global $_zm_license;
-    $_zm_license = new ZM_License( array(
-        'namespace' => CARRIER_NAMESPACE,
-        'version'   => '1',
-        'download'  => 'Carrier', // Must match download title in EDD store!
-        'store'     => 'http://zanematthew-ve.dev/store',
-        'plugin_file' => __FILE__,
-        'author' => 'Zane Matthew, Inc.',
-        'license' =>  empty( $carrier_settings['license_key'] ) ? null : $carrier_settings['license_key'] ) );
+```
+/**
+ * Adds the params to the button that checks the license.
+ *
+ * @since 1.0.0
+ */
+public function licenseParams(){
+
+    global $client_access_settings;
+
+    $params = array(
+        'namespace'   => CLIENT_ACCESS_NAMESPACE,
+        'version'     => CLIENT_ACCESS_LICENSE_VERSION,
+        'download'    => CLIENT_ACCESS_LICENSE_PRODUCT_NAME, // Must match download title in EDD store!
+        'store'       => CLIENT_ACCESS_LICENSE_STORE_URL,
+        'license'     => $client_access_settings['client_access_license'],
+        'settings_id' => 'client_access_license',
+        'field_id'    => CLIENT_ACCESS_NAMESPACE . '_client_access_license'
+    );
+
+    return $params;
 }
-add_action( 'plugins_loaded', 'carrier_cc_setup' );
+add_filter( 'client_access_client_access_license_data', array( &$this, 'licenseParams' ) );
 ```
