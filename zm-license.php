@@ -318,7 +318,7 @@ Class ZMLicense {
             $message = array(
                 'type' => 'deactivated',
                 'button_text' => __( 'Successfully Deactivated!', $this->namespace ),
-                'description' => __( '', $this->namespace )
+                'description' => ''
                 );
 
         }
@@ -329,7 +329,18 @@ Class ZMLicense {
             $message = array(
                 'type' => 'valid',
                 'button_text' => __( 'Successfully Activated!', $this->namespace ),
-                'description' => __( '', $this->namespace )
+                'description' => ''
+                );
+
+        }
+
+        // Expired
+        elseif ( $validated->error == 'expired' ) {
+
+            $message = array(
+                'type' => 'failure',
+                'button_text' => __( 'Expired', $this->namespace ),
+                'description' => ''
                 );
 
         } else {
