@@ -219,10 +219,12 @@ Class ZMLicense {
      */
     public function validateLicense( $args=null ){
 
+        $previous_license = empty( $_POST['previous_license'] ) ? null : sanitize_key( $_POST['previous_license'] );
+
         $params = wp_parse_args( $args, array(
             'license_action'   => $_POST['license_action'],
             'license_key'      => sanitize_key( $_POST['license_key'] ),
-            'previous_license' => sanitize_key( $_POST['previous_license'] ),
+            'previous_license' => $previous_license,
             'namespace'        => $this->namespace,
             'download_name'    => $_POST['download_name'],
             'settings_id'      => $_POST['settings_id'],
