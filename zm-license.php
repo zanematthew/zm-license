@@ -343,6 +343,14 @@ Class ZMLicense {
                 'description' => ''
                 );
 
+        } elseif ( ! empty( $validated->error ) && $validated->error == 'expired' ) {
+
+            $message = array(
+                'type' => 'failure',
+                'button_text' => __( 'Expired!', $this->namespace ),
+                'description' => __( '', $this->namespace )
+                );
+
         } else {
 
             $message = array(
