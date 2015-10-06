@@ -15,9 +15,10 @@ Class ZMLicense {
     public function __construct( $params=null ){
 
 
-        $this->namespace = sanitize_key( $params['namespace'] );
+        $this->namespace   = sanitize_key( $params['namespace'] );
+        $this->text_domain = $params['text_domain'];
         $this->settings_id = $params['settings_id'];
-        $this->version = '1.0.0';
+        $this->version     = '1.0.1';
 
 
         add_action( 'admin_enqueue_scripts', array( &$this, 'adminScripts' ) );
@@ -48,7 +49,7 @@ Class ZMLicense {
 
         $screen = get_current_screen();
 
-        if ( $screen->id == 'settings_page_' . $this->namespace ){
+        if ( $screen->id == 'settings_page_' . $this->text_domain ){
             wp_enqueue_script( 'zm-license-verify', plugin_dir_url( __FILE__ ) .'assets/javascripts/admin-verify.js', array('jquery'), $this->version );
         }
     }
@@ -169,26 +170,26 @@ Class ZMLicense {
             $expires = date( 'D M j H:i', strtotime( $data['expires'] ) );
 
             $html = sprintf( '%s %s, %s %s, %s %s, %s %s, %s %s',
-                __( 'Registered to', $this->namespace ),
+                __( 'Registered to', $this->text_domain ),
                 $data['customer_name'],
 
-                __( 'Expires on', $this->namespace ),
+                __( 'Expires on', $this->text_domain ),
                 $expires,
 
-                __( 'Site count', $this->namespace ),
+                __( 'Site count', $this->text_domain ),
                 $data['site_count'],
 
-                __( 'Activations left', $this->namespace ),
+                __( 'Activations left', $this->text_domain ),
                 $data['activations_left'],
 
-                __( 'For', $this->namespace ),
+                __( 'For', $this->text_domain ),
                 $data['item_name']
             );
 
             // $data['license_limit']
             // $data['customer_email']
         } else {
-            $html = __( 'Please activate your license to keep your products up to date.', $this->namespace );
+            $html = __( 'Please activate your license to keep your products up to date.', $this->text_domain );
         }
 
         echo '<p class="description">' . $html . '</p>';
@@ -308,8 +309,8 @@ Class ZMLicense {
 
             $message = array(
                 'type' => 'invalid',
-                'button_text' => __( 'Invalid', $this->namespace ),
-                'description' => __( '', $this->namespace )
+                'button_text' => __( 'Invalid', $this->text_domain ),
+                'description' => ''
                 );
 
         }
@@ -319,7 +320,7 @@ Class ZMLicense {
 
             $message = array(
                 'type' => 'deactivated',
-                'button_text' => __( 'Successfully Deactivated!', $this->namespace ),
+                'button_text' => __( 'Successfully Deactivated!', $this->text_domain ),
                 'description' => ''
                 );
 
@@ -330,7 +331,7 @@ Class ZMLicense {
 
             $message = array(
                 'type' => 'valid',
-                'button_text' => __( 'Successfully Activated!', $this->namespace ),
+                'button_text' => __( 'Successfully Activated!', $this->text_domain ),
                 'description' => ''
                 );
 
@@ -341,7 +342,7 @@ Class ZMLicense {
 
             $message = array(
                 'type' => 'failure',
-                'button_text' => __( 'Expired', $this->namespace ),
+                'button_text' => __( 'Expired', $this->text_domain ),
                 'description' => ''
                 );
 
@@ -349,16 +350,16 @@ Class ZMLicense {
 
             $message = array(
                 'type' => 'failure',
-                'button_text' => __( 'Expired!', $this->namespace ),
-                'description' => __( '', $this->namespace )
+                'button_text' => __( 'Expired!', $this->text_domain ),
+                'description' => ''
                 );
 
         } else {
 
             $message = array(
                 'type' => 'failure',
-                'button_text' => __( 'Failure!', $this->namespace ),
-                'description' => __( 'An unexpected error occurred.', $this->namespace )
+                'button_text' => __( 'Failure!', $this->text_domain ),
+                'description' => __( 'An unexpected error occurred.', $this->text_domain )
                 );
 
         }
