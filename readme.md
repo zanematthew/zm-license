@@ -2,14 +2,16 @@ Description
 ==
 Handles the functionality for activating, and deactivating the license via AJAX.
 
+Note this takes advantage of [Quilt](github.com/zanematthew/quilt)
+
 Usage
 ==
 
 1. Init the class
 ```
 $a = new ZMLicense( array(
-    'namespace'   => CLIENT_ACCESS_NAMESPACE,
-    'settings_id' => 'client_access_license' // Where in the settings to get the license from?
+    'namespace'   => MY_PLUGIN_NAMESPACE,
+    'settings_id' => 'my_plugin_license' // Where in the settings to get the license from?
 ) );
 ```
 
@@ -22,21 +24,21 @@ $a = new ZMLicense( array(
  *
  * @since 1.0.0
  */
-public function licenseParams(){
+public function my_plugin_license_filter(){
 
-    global $client_access_settings;
+    global $my_plugin_settings;
 
     $params = array(
-        'namespace'   => CLIENT_ACCESS_NAMESPACE,
-        'version'     => CLIENT_ACCESS_LICENSE_VERSION,
-        'download'    => CLIENT_ACCESS_LICENSE_PRODUCT_NAME, // Must match download title in EDD store!
-        'store'       => CLIENT_ACCESS_LICENSE_STORE_URL,
-        'license'     => $client_access_settings['client_access_license'],
-        'settings_id' => 'client_access_license',
-        'field_id'    => CLIENT_ACCESS_NAMESPACE . '_client_access_license'
+        'namespace'   => MY_PLUGIN_NAMESPACE,
+        'version'     => MY_PLUGIN_LICENSE_VERSION,
+        'download'    => MY_PLUGIN_LICENSE_PRODUCT_NAME, // Must match download title in EDD store!
+        'store'       => MY_PLUGIN_LICENSE_STORE_URL,
+        'license'     => $my_plugin_settings['my_plugin_license'],
+        'settings_id' => 'my_plugin_license',
+        'field_id'    => MY_PLUGIN_NAMESPACE . '_my_plugin_license'
     );
 
     return $params;
 }
-add_filter( 'client_access_client_access_license_data', array( &$this, 'licenseParams' ) );
+add_filter( 'quilt_my_plugin_license_data', array( &$this, 'my_plugin_license_filter' ) );
 ```
