@@ -1,6 +1,10 @@
 <?php
 
-// Handles checking of a remote license
+/**
+ * Handles checking of a remote license
+ *
+ * @version 1.0.1
+ */
 
 if ( ! class_exists( 'ZMLicense' ) ) :
 Class ZMLicense {
@@ -107,16 +111,19 @@ Class ZMLicense {
             'url'       => home_url()
         );
 
-        $response = wp_remote_get( add_query_arg( $api_params, $license_info['store'] ), array( 'timeout' => 15, 'sslverify' => false ) );
+        $response = wp_remote_get( add_query_arg( $api_params, $license_info['store'] ),
+            array(
+                'timeout'   => 15,
+                'sslverify' => false
+        ) );
 
         // make sure the response came back okay
         if ( is_wp_error( $response ) )
             return false;
 
         // decode the license data
-        $json = json_decode( wp_remote_retrieve_body( $response ) );
+        return json_decode( wp_remote_retrieve_body( $response ) );
 
-        return $json;
     }
 
 
@@ -352,6 +359,14 @@ Class ZMLicense {
                 'type' => 'failure',
                 'button_text' => __( 'Expired!', $this->text_domain ),
                 'description' => ''
+                );
+
+        } elseif ( ! empty( $validated->error ) && $validated->error == 'no_activations_left' ) {
+
+            $message = array(
+                'type' => 'failur',
+                'button_text' => __( 'No activations left', $this->text_domain ),
+                'description' => 'You currently have no activations left'
                 );
 
         } else {
